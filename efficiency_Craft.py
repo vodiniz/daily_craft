@@ -32,10 +32,9 @@ def create_items(urls,json):
 			'url': url,
 			'sellprice': sellprice,
 			'buyprice': buyprice,
-			'recipe_url': recipe_url
+			'recipe_url': recipe_url,
 			'subitem': subitem
 			}
-
 		items.append(item)
 	return items
 
@@ -83,8 +82,6 @@ def get_recipe(item,json):
 	recipe_soup = BeautifulSoup(recipe_request.content,'html.parser')
 	soup_recipe_list = recipe_soup\
 	.find('tbody')
-	print('--------------')
-	print('URL : '+url_recipe)
 	soup_recipe_name = soup_recipe_list.find_all('span',{'class':'small item-icon thumb-icon'})
 	soup_recipe_quantity = soup_recipe_list.find_all('tr',{'class':'tptotal'})
 	zip_recipe = zip(soup_recipe_name,soup_recipe_quantity)
@@ -95,8 +92,7 @@ def get_recipe(item,json):
 		soup_recipe_quantity[index] = element2.get('data-qty') 
 		recipe_ingredients[get_id(soup_recipe_name[index],json)] = [soup_recipe_name[index],soup_recipe_quantity[index]]
 		index += 1
-	print_dict(recipe_ingredients)
-
+		
 	return recipe_ingredients
 
 def get_all_recipes(items,json):

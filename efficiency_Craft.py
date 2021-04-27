@@ -13,7 +13,7 @@ urls=[
     'https://wiki.guildwars2.com/wiki/Square_of_Vabbian_Silk'
 ]
 
-def create_items(urls):
+def create_items(urls,json):
     items = []
 
     for url in urls:
@@ -21,9 +21,10 @@ def create_items(urls):
         soup_page = BeautifulSoup(gw2_wiki.content,'html.parser')
 
         name = get_item_name(soup_page)
-        id = get_id(name,json_id_list)
-        sellprice, buyprice = get_api_price(item['id'])
-        recipe_url = get_item_recipe_url(soup)
+        id = get_id(name,json)
+        sellprice, buyprice = get_api_price(id)
+        recipe_url = get_item_recipe_url(soup_page)
+        subitem = get_subitem(soup_page)
 
         item = {
             'name': name,
@@ -35,22 +36,20 @@ def create_items(urls):
         }
 
         items.append(item)
-        set_names.append(name)
-
     return items
 
 def get_item_name(soup):
-    name = soup_page\
+    name = soup\
         .find('h1', class_="firstHeading")\
         .get_text()
     return name
 
 def get_item_recipe_url(soup):
-    soup_page\
+    recipe = soup\
     .find('span',{'class':'plainlinks'})\
     .find('a', recursive = False)\
     .get('href')
-    recipe = 'https{}'.format(recipe)
+    recipe = 'https:{}'.format(recipe)
     return recipe
 
 def get_api_price(id):
@@ -69,24 +68,22 @@ def get_json_id_list():
 
     return json_id_list
 
+def get_id(name,json):
 
-def get_id(name,dic_list):
-
-    for key, dkey in dic_list.items():
+    for key, dkey in json.items():
         for item in dkey:
             if (item[1] == name):
                 return item[0]
 
-def get_recipe_list(item):
-    recipe_list = []
+def get_recipe(item,json):
     recipe_ingredients = {}
     url_recipe = item['recipe_url']
-
-    recipe_request = url_recipe.requests.get()
+    recipe_request =requests.get(url_recipe)
     recipe_soup = BeautifulSoup(recipe_request.content,'html.parser')
     soup_recipe_list = recipe_soup\
     .find('tbody')
-
+    print('--------------')
+    print('URL : '+url_recipe)
     soup_recipe_name = soup_recipe_list.find_all('span',{'class':'small item-icon thumb-icon'})
     soup_recipe_quantity = soup_recipe_list.find_all('tr',{'class':'tptotal'})
     zip_recipe = zip(soup_recipe_name,soup_recipe_quantity)
@@ -95,23 +92,24 @@ def get_recipe_list(item):
     for element1, element2 in zip_recipe:
         soup_recipe_name[index] = element1.find('a').get('title')
         soup_recipe_quantity[index] = element2.get('data-qty') 
-        recipe_ingredients[get(id)] = [soup_recipe_name[index],soup_recipe_quantity[index]]
+        recipe_ingredients[get_id(soup_recipe_name[index],json)] = [soup_recipe_name[index],soup_recipe_quantity[index]]
         index += 1
+    print_dict(recipe_ingredients)
 
-    print_list_dict(recipe_ingredients)
+    return recipe_ingredients
 
-def recipe_list_all(items):
+def get_all_recipes(items,json):
     recipe_list = []
-    recipe_ingredients
-    #for item in items:
 
+    for item in items:
+    	recipe_ingredients = get_recipe(item,json)
+    	recipe_list.append(recipe_ingredients)
 
-        index += 1
+    return recipe_list
 
-def get_specific_recipe():
-    url_recipe = 'https://wiki.guildwars2.com/index.php?title=Special:RunQuery/Base_ingredients_query&Base_ingredients%5Bitem%5D=Deldrimor%20Steel%20Ingot&Base_ingredients%5Bid%5D=7313&Base_ingredients%5Bquantity%5D=1&_run'
-
-    recipe_request = requests.get(url_recipe)
+def get_specific_recipe(url):
+   
+    recipe_request = requests.get(url)
     recipe_soup = BeautifulSoup(recipe_request.content,'html.parser')
     soup_recipe_list = recipe_soup\
     .find('tbody')
@@ -119,16 +117,35 @@ def get_specific_recipe():
     soup_recipe_name = soup_recipe_list.find_all('span',{'class':'small item-icon thumb-icon'})
     soup_recipe_quantity = soup_recipe_list.find_all('tr',{'class':'tptotal'})
 
-
     zip_object = zip(soup_recipe_name,soup_recipe_quantity)
 
     index = 0
     for element1, element2 in zip_object:
         soup_recipe_name[index] = element1.find('a').get('title')
-        soup_recipe_quantity[index] = element2.get('data-qty') 
+        soup_recipe_quantity[index] = element2.get('data-qty')
 
         index += 1
 
+def get_subitem(item,soup):
+	subitem_name_list = soup\
+	.find('div', class_ = 'ingredients')\
+	.find_all('span',{'class':'small item-icon thumb-icon'})\
+
+	for subitem in subitem_name_list:
+		subitem_name = subitem.find('a').get('title')
+		print(subitem_name)
+
+		if(subitem_name == 'Lump of Mithrillium'):
+			return 'Lump of Mithrillium'
+
+		if (subitem_name == 'Glob of Elder Spirit Residue'):
+			return 'Glob of Elder Spirit Residue'
+
+		if (subitem_name == 'Spool of Thick Elonian Cord'):
+			return 'Spool of Thick Elonian Cord'
+
+		if (subitem_name == 'Spool of Silk Weaving Thread'):
+			return 'Spool of Silk Weaving Thread'
 
 
 def print_list_dict(items):
@@ -137,19 +154,18 @@ def print_list_dict(items):
             print(key, ' : ', value)
         print('--------')
 
+def print_dict(item):
+	for key,value in item.items():
+		print(key, ' : ', value)
+	print('--------')
 
 def main():
-    #set_names = set()
-    #json_id_list = get_json_id_list()
-    #items = create_items(urls)
-
-    #get_all_ids(set_names)
-    get_specific_recipe2()
-    #print_list_dict(items)
-
-
-
-
-
+    json_id_list = get_json_id_list()
+    items = create_items(urls,json_id_list)
+    recipes = get_all_recipes(items,json_id_list)
+	print_list_dict(items)
+	print('Lista de Recipes')
+	print_list_dict(recipes)
+	get_subitem()
 
 main()

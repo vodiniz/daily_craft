@@ -92,13 +92,20 @@ def get_recipe(item,json):
 	soup_recipe_name = soup_recipe_list.find_all('span',{'class':'small item-icon thumb-icon'})
 	soup_recipe_quantity = soup_recipe_list.find_all('tr',{'class':'tptotal'})
 	zip_recipe = zip(soup_recipe_name,soup_recipe_quantity)
-	index = 0
 
 	for element1, element2 in zip_recipe:
-		soup_recipe_name[index] = element1.find('a').get('title')
-		soup_recipe_quantity[index] = element2.get('data-qty') 
-		recipe_ingredients[soup_recipe_name[index]] = [get_id(soup_recipe_name[index],json),soup_recipe_quantity[index]]
-		index += 1
+		name = element1.find('a').get('title')
+		id = get_id(name,json)
+		quantity = element2.get('data-qty')
+		sellprice, buyprice = get_api_price(id)
+		sellprice = available_npc(id,sellprice)
+
+		recipe_ingredients[name] = [id,int(quantity),sellprice,buyprice]
+
+	recipe_ingredients['totalvalue'] = total_value(recipe_ingredients)
+	recipe_ingredients['totalvaluewithsubitem'] = total_value_with_subitem(item,recipe_ingredients,json)
+	recipe_ingredients['baseitem'] = item['name']
+
 
 	return recipe_ingredients
 
@@ -111,9 +118,11 @@ def get_all_recipes(items,json):
 
 	return recipe_list
 
-def get_specific_recipe(url,json):
+def get_specific_recipe(wiki_url,json):
 	recipe_ingredients = {}
-	recipe_request = requests.get(url)
+	wiki_request = requests.get(wiki_url)
+	wiki_soup = BeautifulSoup(wiki_request.content, 'html.parser')
+	recipe_request = requests.get(get_item_recipe_url(wiki_soup))
 	recipe_soup = BeautifulSoup(recipe_request.content,'html.parser')
 	soup_recipe_list = recipe_soup\
 	.find('tbody')
@@ -121,17 +130,20 @@ def get_specific_recipe(url,json):
 	soup_recipe_name = soup_recipe_list.find_all('span',{'class':'small item-icon thumb-icon'})
 	soup_recipe_quantity = soup_recipe_list.find_all('tr',{'class':'tptotal'})
 
-	zip_object = zip(soup_recipe_name,soup_recipe_quantity)
+	zip_recipe = zip(soup_recipe_name,soup_recipe_quantity)
 
-	index = 0
-	for element1, element2 in zip_object:
-		soup_recipe_name[index] = element1.find('a').get('title')
-		soup_recipe_quantity[index] = element2.get('data-qty')
-		recipe_ingredients[soup_recipe_name[index]] = [get_id(soup_recipe_name[index],json),soup_recipe_quantity[index]]
+	for element1, element2 in zip_recipe:
+		name = element1.find('a').get('title')
+		id = get_id(name,json)
+		quantity = element2.get('data-qty')
+		sellprice, buyprice = get_api_price(id)
+		sellprice = available_npc(id,sellprice)
 
-		index += 1
+		recipe_ingredients[name] = [id,int(quantity),sellprice,buyprice]
 
-	print(recipe_ingredients)
+	recipe_ingredients['totalvalue'] = total_value(recipe_ingredients)
+
+	return recipe_ingredients
 
 def get_subitem(soup):
 	subitem_name_list = soup\
@@ -145,43 +157,54 @@ def get_subitem(soup):
 		if(subitem_name == 'Lump of Mithrillium'):
 			return 'Lump of Mithrillium'
 
-		if (subitem_name == 'Glob of Elder Spirit Residue'):
+		if(subitem_name == 'Glob of Elder Spirit Residue'):
 			return 'Glob of Elder Spirit Residue'
 
-		if (subitem_name == 'Spool of Thick Elonian Cord'):
+		if(subitem_name == 'Spool of Thick Elonian Cord'):
 			return 'Spool of Thick Elonian Cord'
 
-		if (subitem_name == 'Spool of Silk Weaving Thread'):
+		if(subitem_name == 'Spool of Silk Weaving Thread'):
 			return 'Spool of Silk Weaving Thread'
 
-def available_npc():
+def available_npc(id,sellprice):
+	if(id == 19750):
+		return 16
 
-#	name = dict['id-name-quantity'][0] 
-	name = 'Lump of Coal'
-	basic_url = 'https://wiki.guildwars2.com/wiki/'
-	name = name.replace(' ','_')
-	url = basic_url+name
-	page = requests.get(url)
-	soup_page = BeautifulSoup(page.content, 'html.parser')
-	teste = soup_page\
-	.find('a',{'href':'/wiki/Master_craftsman'})\
-	.previous_sibiling()
+	if(id == 19924):
+		return 48
 
-	print (teste)
+	if(id == 19790):
+		return 64
 
-	print(bool(soup_page.find('Purchased from')))
+	if(id == 46747):
+		return 150
 
-	if (bool(soup_page.find_all(string='Purchased from'))):
-		npc_price = soup_page\
-		.find('li', class_ = 'ingredients')\
-		.find('span',{'class':'price'})\
-		.get('data-sort-value')
+	return sellprice
 
-		print(npc_price)
+def total_value(recipe):
+
+	totalvalue = 0
+	for key,value in recipe.items():
+		parcial_value = value[1]*value[2]
+		totalvalue += parcial_value
+	return totalvalue 
+
+def subitem_value(subitem_name,json):
+	wiki_link = 'https://wiki.guildwars2.com/wiki/{}'.format(subitem_name).replace(' ','_')
+	subitem_recipe = get_specific_recipe(wiki_link,json)
+	#print('subitem_recipe total value = {}'.format(subitem_recipe['totalvalue']))
+
+	print_dict(subitem_recipe)
+	return subitem_recipe['totalvalue']
+
+def total_value_with_subitem(item,recipe,json):
+	name = item['subitem']
+	value = recipe['totalvalue'] - subitem_value(name,json)
+	#print ('recipe[totalvalue]={}'.format(recipe['totalvalue']))
+
+	return (recipe['totalvalue'] - subitem_value(name,json))
 
 
-
-	
 
 
 def print_list_dict(items):
@@ -190,18 +213,29 @@ def print_list_dict(items):
 			print(key, ' : ', value)
 		print('--------')
 
+def print_recipes(items):
+	for item in items:
+		print(item['baseitem'])
+		for key, value in item.items():
+			if (key == 'baseitem'):
+				pass
+			else:
+				print(key, ' : ', value)
+		print('--------')
+
 def print_dict(item):
 	for key,value in item.items():
 		print(key, ' : ', value)
 	print('--------')
 
+
 def main():
-	# json_id_list = get_json_id_list()
-	# items = create_items(urls,json_id_list)
-	# recipes = get_all_recipes(items,json_id_list)
-	# print_list_dict(items)
-	# print('Lista de Recipes')
-	# print_list_dict(recipes)
-	available_npc()
+	json_id_list = get_json_id_list()
+	items = create_items(urls,json_id_list)
+	recipes = get_all_recipes(items,json_id_list)
+	print_list_dict(items)
+	print('Lista de Recipes')
+	print_recipes(recipes)
+#	available_npc()
 
 main()

@@ -106,6 +106,11 @@ def get_recipe(item,json):
 	recipe_ingredients['totalvaluewithsubitem'] = total_value_with_subitem(item,recipe_ingredients,json)
 	recipe_ingredients['baseitem'] = item['name']
 
+	item['totalrecipeprice'] = recipe_ingredients['totalvalue']
+	item['recipepricewithsubitem'] = recipe_ingredients['totalvaluewithsubitem']
+	item['profit'] = (item['sellprice'] - item['totalrecipeprice'])
+	item['profitwithsubitem'] = (item['sellprice'] - recipe_ingredients['totalvaluewithsubitem'])
+
 
 	return recipe_ingredients
 
@@ -192,20 +197,14 @@ def total_value(recipe):
 def subitem_value(subitem_name,json):
 	wiki_link = 'https://wiki.guildwars2.com/wiki/{}'.format(subitem_name).replace(' ','_')
 	subitem_recipe = get_specific_recipe(wiki_link,json)
-	#print('subitem_recipe total value = {}'.format(subitem_recipe['totalvalue']))
 
-	print_dict(subitem_recipe)
 	return subitem_recipe['totalvalue']
 
 def total_value_with_subitem(item,recipe,json):
 	name = item['subitem']
 	value = recipe['totalvalue'] - subitem_value(name,json)
-	#print ('recipe[totalvalue]={}'.format(recipe['totalvalue']))
 
 	return (recipe['totalvalue'] - subitem_value(name,json))
-
-
-
 
 def print_list_dict(items):
 	for item in items:
@@ -223,19 +222,27 @@ def print_recipes(items):
 				print(key, ' : ', value)
 		print('--------')
 
+def prints_items_beautifuly(items):
+	for item in items:
+		print('Name                      :{}'.format(item['name']))
+		print('Sell price                :{}'.format(item['sellprice']))
+		print('Subitem                   :{}'.format(item['subitem']))
+		print('Crafting cost             :{}'.format(item['totalrecipeprice']))
+		print('Crafting cost with subitem:{}'.format(item['recipepricewithsubitem']))
+		print('Profit                    :{}'.format(item['profit']))
+		print('Profit with subitem       :{}'.format(item['profitwithsubitem']))
+		print('-----------------------------------------------------------------')
+	return
+
 def print_dict(item):
 	for key,value in item.items():
 		print(key, ' : ', value)
 	print('--------')
 
-
 def main():
 	json_id_list = get_json_id_list()
 	items = create_items(urls,json_id_list)
 	recipes = get_all_recipes(items,json_id_list)
-	print_list_dict(items)
-	print('Lista de Recipes')
-	print_recipes(recipes)
-#	available_npc()
+	prints_items_beautifuly(items)
 
 main()
